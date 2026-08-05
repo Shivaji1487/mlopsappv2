@@ -103,19 +103,19 @@ pipeline {
                     )
                 ]) {
                     sh """
-                        rm -rf mlops-gitops
-                        git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitops.git
-                        cd mlops-gitops
+                        rm -rf mlops-gitospv2
+                        git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitospv2.git
+                        cd mlops-gitospv2
 
                         git config user.name "Jenkins CI"
                         git config user.email "jenkins@local"
 
-                        sed -i "s|repository: .*|repository: ${DOCKER_HUB_USER}/${IMAGE_NAME}|g" applications/helm/values.yaml
-                        sed -i "s|tag: .*|tag: '${IMAGE_TAG}'|g" applications/helm/values.yaml
+                        sed -i "s|repository: .*|repository: ${DOCKER_HUB_USER}/${IMAGE_NAME}|g" chart/ml-service/values-dev.yaml
+                        sed -i "s|tag: .*|tag: '${IMAGE_TAG}'|g" chart/ml-service/values-dev.yaml
 
-                        git add applications/helm/values.yaml
+                        git add chart/ml-service/values-dev.yaml
                         git commit -m "Deploy Image ${IMAGE_TAG}" || true
-                        git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitops.git
+                        git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitospv2.git
                         git push origin main
                     """
                 }
@@ -125,10 +125,10 @@ pipeline {
 
     post {
         always {
-            sh '''
+            sh """
                 docker rmi ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} || true
                 docker rmi ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest || true
-            '''
+            """
             cleanWs()
         }
     }
