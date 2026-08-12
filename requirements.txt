@@ -1,5 +1,5 @@
 pandas
-mlflow
+mlflow==3.1.4
 s3fs
 fsspec
 boto3
