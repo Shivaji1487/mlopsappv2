@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'prod'],
+            description: 'Select Target Environment for Deployment'
+        )
+    }
+
     environment {
         DOCKER_HUB_USER        = "sshivaji555"
         IMAGE_NAME             = "mlops-app"
@@ -37,20 +45,20 @@ pipeline {
             }
         }
 
-        stage('Stage 3: Run Unit Tests') {
-            steps {
-                sh '''
-                    . venv/bin/activate
-                    python -m pytest test/
-                '''
-            }
-        }
-
-        stage('Stage 4: Validate Data') {
+        stage('Stage 3: Validate Data ') {
             steps {
                 sh '''
                     . venv/bin/activate
                     python -m src.validate
+                '''
+            }
+        }
+
+        stage('Stage 4: Run Unit Tests') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+					python -m pytest test/
                 '''
             }
         }
@@ -102,22 +110,46 @@ pipeline {
                         passwordVariable: 'GIT_TOKEN'
                     )
                 ]) {
-                    sh """
-                        rm -rf mlops-gitospv2
-                        git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitospv2.git
-                        cd mlops-gitospv2
+                    script {
+                        def targetEnvFile = ""
 
-                        git config user.name "Jenkins CI"
-                        git config user.email "jenkins@local"
+                        switch (params.ENVIRONMENT) {
+                            case 'dev':
+                                targetEnvFile = "chart/ml-service/values-dev.yaml"
+                                break
 
-                        sed -i "s|repository: .*|repository: ${DOCKER_HUB_USER}/${IMAGE_NAME}|g" chart/ml-service/values-dev.yaml
-                        sed -i "s|tag: .*|tag: '${IMAGE_TAG}'|g" chart/ml-service/values-dev.yaml
+                            case 'staging':
+                                targetEnvFile = "chart/ml-service/values-staging.yaml"
+                                break
 
-                        git add chart/ml-service/values-dev.yaml
-                        git commit -m "Deploy Image ${IMAGE_TAG}" || true
-                        git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitospv2.git
-                        git push origin main
-                    """
+                            case 'prod':
+                                targetEnvFile = "chart/ml-service/values-prod.yaml"
+                                break
+
+                            default:
+                                error("Invalid environment selected: ${params.ENVIRONMENT}")
+                        }
+
+                        echo "Target Environment: ${params.ENVIRONMENT}"
+                        echo "Target Values File: ${targetEnvFile}"
+
+                        sh """
+                            rm -rf mlops-gitopsv3devstagingprod
+                            git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitopsv3devstagingprod.git
+                            cd mlops-gitopsv3devstagingprod
+
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@local"
+
+                            sed -i "s|repository: .*|repository: ${DOCKER_HUB_USER}/${IMAGE_NAME}|g" ${targetEnvFile}
+                            sed -i "s|tag: .*|tag: '${IMAGE_TAG}'|g" ${targetEnvFile}
+
+                            git add ${targetEnvFile}
+                            git commit -m "Deploy Image ${IMAGE_TAG} to ${params.ENVIRONMENT}" || true
+                            git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/Shivaji1487/mlops-gitopsv3devstagingprod.git
+                            git push origin main
+                        """
+                    }
                 }
             }
         }
