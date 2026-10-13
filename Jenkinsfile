@@ -157,10 +157,20 @@ pipeline {
 
     post {
         always {
+            sh '''
+                mkdir -p reports
+                if [ -f trivy-report.html ]; then
+                    cp trivy-report.html reports/index.html
+                fi
+            '''
+
+            archiveArtifacts artifacts: 'reports/index.html', allowEmptyArchive: true
+
             sh """
                 docker rmi ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} || true
                 docker rmi ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest || true
             """
+
             cleanWs()
         }
     }
